@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Human Brain — Interactive 3D Neuroscience Presentation</title>
+<meta name="description" content="An interactive 3D model of the human brain: seven color-coded regions, neural pathways and four live brain-state simulations for a graduation presentation." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: { colors: { void: '#070B19' }, fontFamily: { display: ['Outfit', 'sans-serif'], body: ['Inter', 'sans-serif'] } } }
+  };
+</script>
+
+<style>
+  /* ------------------------------------------------------------------
+     Scales every rem-based size with the screen so a 1080p TV, a 4K TV
+     and a laptop all keep the same proportions (16px at 1920x1080).
+  ------------------------------------------------------------------ */
+  html { font-size: clamp(11px, min(0.8333vw, 1.4815vh), 44px); }
+  body { margin: 0; background: #070B19; color: #EAF0FF; font-family: 'Inter', sans-serif; overflow: hidden; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; color: inherit; cursor: pointer; }
+  .font-display { font-family: 'Outfit', sans-serif; }
+
+  #stage { position: fixed; inset: 0; z-index: 0; }
+  #stage canvas { display: block; outline: none; }
+
+  #vignette {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 46%, rgba(70,110,220,0.10) 0%, rgba(7,11,25,0) 52%),
+      radial-gradient(ellipse at 50% 50%, rgba(7,11,25,0) 55%, rgba(7,11,25,0.75) 120%);
+  }
+  #fx { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
+        background: radial-gradient(ellipse at center, rgba(0,0,0,0) 38%, var(--fx, rgba(255,20,60,0.9)) 135%); }
+
+  .glass {
+    background: linear-gradient(160deg, rgba(20,30,64,0.62), rgba(10,15,36,0.52));
+    border: 1px solid rgba(150,180,255,0.17);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    box-shadow: 0 14px 44px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
+    border-radius: 1.3rem;
+  }
+
+  /* ---------------- Top navigation ---------------- */
+  #topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 20; padding: 1.4rem 2.2rem 0; pointer-events: none; }
+  #tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; padding: 0.5rem; pointer-events: auto; }
+  .tab {
+    --c: #A5B4FC;
+    position: relative; text-align: left; padding: 0.75rem 1.3rem 0.85rem; border-radius: 0.95rem;
+    background: transparent; border: 1px solid transparent; transition: all .35s ease; overflow: hidden;
+  }
+  .tab .t1 { display: block; font: 700 1.1rem 'Outfit', sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c); opacity: .9; }
+  .tab .t2 { display: block; margin-top: 0.15rem; font: 600 1.4rem/1.2 'Outfit', sans-serif; color: #C9D4F5; }
+  .tab:hover { background: rgba(255,255,255,0.05); }
+  .tab.on { background: linear-gradient(135deg, color-mix(in srgb, var(--c) 26%, transparent), rgba(255,255,255,0.03)); border-color: color-mix(in srgb, var(--c) 70%, transparent); box-shadow: 0 0 28px color-mix(in srgb, var(--c) 28%, transparent); }
+  .tab.on .t2 { color: #fff; }
+  .tab.on::after { content: ''; position: absolute; left: 1.3rem; right: 1.3rem; bottom: 0; height: 3px; border-radius: 3px; background: var(--c); box-shadow: 0 0 14px var(--c); }
+
+  #tagline { margin: 0.9rem auto 0; width: fit-content; padding: 0.4rem 1.4rem; border-radius: 999px; font: 500 1.25rem 'Outfit', sans-serif; letter-spacing: .04em; color: #C9D4F5;
+             background: rgba(10,16,38,0.5); border: 1px solid rgba(150,180,255,0.14); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  #tagline b { color: var(--c, #A5B4FC); font-weight: 700; }
+
+  /* ---------------- Left region list ---------------- */
+  #leftWrap { position: fixed; left: 2.2rem; top: 10.5rem; bottom: 9.2rem; width: 23.5rem; z-index: 15; display: flex; align-items: center; pointer-events: none; }
+  #regionList { width: 100%; padding: 1rem; pointer-events: auto; }
+  #regionList h2 { margin: 0.2rem 0.6rem 0.7rem; font: 700 1.05rem 'Outfit', sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #8FA3D9; }
+  .ritem {
+    --c: #fff; display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left;
+    padding: 0.62rem 0.8rem; margin-bottom: 0.3rem; border-radius: 0.85rem; background: transparent;
+    border: 1px solid transparent; transition: all .3s ease;
+  }
+  .ritem .dot { flex: none; width: 1.05rem; height: 1.05rem; border-radius: 50%; background: var(--c); box-shadow: 0 0 14px var(--c); transition: all .3s; }
+  .ritem .rname { flex: 1; font: 600 1.38rem/1.15 'Outfit', sans-serif; color: #E4EBFF; }
+  .ritem .chips { flex: none; display: flex; gap: 0.25rem; }
+  .ritem .chips i { font-style: normal; font: 700 0.85rem 'Outfit', sans-serif; width: 1.25rem; height: 1.25rem; display: grid; place-items: center; border-radius: 0.35rem; background: rgba(255,255,255,0.07); color: #8FA3D9; transition: all .3s; }
+  .ritem .chips i.hit { background: color-mix(in srgb, var(--c) 30%, transparent); color: #fff; }
+  .ritem:hover { background: rgba(255,255,255,0.06); }
+  .ritem.sel { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 24%, transparent), rgba(255,255,255,0.02)); border-color: color-mix(in srgb, var(--c) 65%, transparent); box-shadow: 0 0 22px color-mix(in srgb, var(--c) 22%, transparent); }
+  .ritem.sel .dot { transform: scale(1.3); }
+  .ritem.dim { opacity: .38; }
+  .ritem.dim.sel, .ritem.dim:hover { opacity: .85; }
+
+  /* ---------------- Right info card ---------------- */
+  #rightWrap { position: fixed; right: 2.2rem; top: 10.5rem; bottom: 9.2rem; width: 35rem; z-index: 15; display: flex; align-items: center; justify-content: flex-end; pointer-events: none; }
+  #infoCard { --c: #22E4FF; width: 100%; padding: 2rem 2.1rem 2.1rem; pointer-events: auto; position: relative; overflow: hidden;
+              border-color: color-mix(in srgb, var(--c) 45%, rgba(150,180,255,0.17)); box-shadow: 0 14px 54px rgba(0,0,0,0.55), 0 0 60px color-mix(in srgb, var(--c) 18%, transparent), inset 0 1px 0 rgba(255,255,255,0.07); transition: border-color .4s, box-shadow .4s; }
+  #infoCard::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 0.4rem; background: linear-gradient(180deg, var(--c), transparent); }
+  .card-in { animation: cardIn .55s cubic-bezier(.2,.8,.2,1); }
+  @keyframes cardIn { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+  #infoCard h3 { margin: 0; font: 800 3rem/1.05 'Outfit', sans-serif; letter-spacing: -.01em; color: #fff; text-shadow: 0 0 30px color-mix(in srgb, var(--c) 60%, transparent); }
+  .badge { display: inline-block; margin-top: 1rem; padding: 0.45rem 1.1rem; border-radius: 999px; font: 600 1.3rem 'Outfit', sans-serif; color: var(--c);
+           background: color-mix(in srgb, var(--c) 15%, transparent); border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); }
+  .keybox { margin-top: 1.5rem; padding: 0.95rem 1.2rem; border-radius: 1rem; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.08); }
+  .keybox .kl { font: 700 1rem 'Outfit', sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #8FA3D9; }
+  .keybox .kv { margin-top: 0.25rem; font: 700 1.85rem/1.2 'Outfit', sans-serif; color: var(--c); }
+  #infoCard ul { list-style: none; margin: 1.5rem 0 0; padding: 0; }
+  #infoCard li { display: flex; gap: 0.95rem; align-items: flex-start; margin-bottom: 0.95rem; font: 600 1.7rem/1.22 'Outfit', sans-serif; color: #F2F6FF; }
+  #infoCard li::before { content: ''; flex: none; width: 0.8rem; height: 0.8rem; margin-top: 0.62rem; border-radius: 3px; transform: rotate(45deg); background: var(--c); box-shadow: 0 0 12px var(--c); }
+  #closeCard { position: absolute; top: 1rem; right: 1rem; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); font-size: 1.4rem; line-height: 1; transition: all .25s; }
+  #closeCard:hover { background: rgba(255,255,255,0.18); }
+  #hintCard { text-align: left; }
+  #hintCard .hk { font: 700 1rem 'Outfit', sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #8FA3D9; }
+  #hintCard .hv { margin-top: 0.6rem; font: 700 2.2rem/1.15 'Outfit', sans-serif; color: #fff; }
+  #hintCard .hs { margin-top: 0.7rem; font: 500 1.4rem/1.3 'Outfit', sans-serif; color: #9DB0E3; }
+  .pulse-ring { display: inline-block; width: 1.1rem; height: 1.1rem; margin-right: .7rem; border-radius: 50%; background: #22E4FF; box-shadow: 0 0 0 0 rgba(34,228,255,.6); animation: ring 1.8s infinite; vertical-align: middle; }
+  @keyframes ring { 70% { box-shadow: 0 0 0 1.1rem rgba(34,228,255,0); } 100% { box-shadow: 0 0 0 0 rgba(34,228,255,0); } }
+
+  /* ---------------- Bottom bar ---------------- */
+  #bottombar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; padding: 0 2.2rem 1.6rem; display: grid; grid-template-columns: 15rem 1fr 15rem; align-items: end; gap: 1rem; pointer-events: none; }
+  #simWrap { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; pointer-events: none; }
+  #simLabel { font: 700 1.05rem 'Outfit', sans-serif; letter-spacing: .24em; text-transform: uppercase; color: #8FA3D9; display: flex; align-items: center; gap: .7rem; padding: .25rem 1.1rem; border-radius: 999px; background: rgba(8,12,30,.5); min-height: 1.7rem; }
+  #simLabel .live { width: .8rem; height: .8rem; border-radius: 50%; background: var(--c, #666); box-shadow: 0 0 12px var(--c, #666); animation: blink 1s infinite; display: none; }
+  #simLabel.running .live { display: inline-block; }
+  #simLabel.running { color: #fff; }
+  @keyframes blink { 50% { opacity: .25; } }
+  #sims { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.8rem; width: 100%; max-width: 76rem; pointer-events: auto; }
+  .sim {
+    --c: #fff; display: flex; align-items: center; gap: 0.9rem; text-align: left; padding: 0.85rem 1.1rem; min-height: 5.1rem;
+    border-radius: 1.1rem; transition: all .3s ease; position: relative; overflow: hidden;
+  }
+  .sim .ic { flex: none; width: 2.8rem; height: 2.8rem; border-radius: 0.85rem; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 50%, transparent); transition: all .3s; }
+  .sim .ic svg { width: 1.6rem; height: 1.6rem; }
+  .sim .tx { font: 600 1.28rem/1.18 'Outfit', sans-serif; color: #E6EDFF; }
+  .sim:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--c) 60%, transparent); }
+  .sim.on { border-color: var(--c); background: linear-gradient(135deg, color-mix(in srgb, var(--c) 30%, rgba(10,15,36,.6)), rgba(10,15,36,.55)); box-shadow: 0 0 36px color-mix(in srgb, var(--c) 40%, transparent), inset 0 1px 0 rgba(255,255,255,.1); }
+  .sim.on .ic { background: var(--c); color: #070B19; box-shadow: 0 0 22px var(--c); }
+  .sim.on .tx { color: #fff; }
+  .sim.on::after { content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: linear-gradient(90deg, transparent, var(--c), transparent); animation: sweep 1.6s linear infinite; }
+  @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+  #controls { display: flex; flex-direction: column; gap: 0.6rem; pointer-events: auto; }
+  .ctl { white-space: nowrap; display: flex; align-items: center; gap: 0.7rem; padding: 0.75rem 1rem; font: 600 1.15rem 'Outfit', sans-serif; border-radius: 0.95rem; transition: all .25s; }
+  .ctl svg { flex: none; width: 1.5rem; height: 1.5rem; }
+  .ctl:hover { background: rgba(60,90,180,0.35); }
+  .ctl .st { margin-left: auto; font-size: 0.95rem; letter-spacing: .08em; padding: .12rem .5rem; border-radius: .5rem; background: rgba(255,255,255,0.1); }
+  .ctl.active .st { background: #22E4FF; color: #06101f; }
+  .ctl.active svg { animation: spin 4s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------------- 3D markers + floating labels ---------------- */
+  #leaders { position: fixed; inset: 0; z-index: 5; pointer-events: none; width: 100%; height: 100%; }
+  #leaders line { stroke-width: 2; opacity: 0; transition: opacity .3s; }
+  #leaders line.on { opacity: .9; }
+  .mk { --c: #fff; position: fixed; left: 0; top: 0; z-index: 6; width: 1.9rem; height: 1.9rem; margin: -0.95rem 0 0 -0.95rem; border-radius: 50%; background: transparent; border: 0; padding: 0; will-change: transform; }
+  .mk i { position: absolute; inset: 0.55rem; border-radius: 50%; background: var(--c); box-shadow: 0 0 14px var(--c); transition: all .3s; }
+  .mk::before { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--c); opacity: .7; animation: mkring 2.2s ease-out infinite; }
+  @keyframes mkring { from { transform: scale(.55); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+  .mk.dim { opacity: .25; }
+  .mk.on i { inset: 0.3rem; }
+  .lb { --c: #fff; position: fixed; left: 0; top: 0; z-index: 7; pointer-events: none; opacity: 0; transition: opacity .3s; will-change: transform;
+        padding: 0.55rem 1.2rem; border-radius: 0.9rem; font: 700 1.5rem 'Outfit', sans-serif; white-space: nowrap; color: #fff;
+        background: rgba(8,12,30,0.72); border: 1.5px solid var(--c); box-shadow: 0 0 24px color-mix(in srgb, var(--c) 45%, transparent);
+        -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .lb.on { opacity: 1; }
+
+  #loading { position: fixed; inset: 0; z-index: 100; background: #070B19; display: grid; place-items: center; transition: opacity 1s ease, visibility 1s; }
+  #loading.done { opacity: 0; visibility: hidden; }
+  #loading .lt { font: 700 2.4rem 'Outfit', sans-serif; letter-spacing: .3em; color: #8FA3D9; text-transform: uppercase; animation: blink 1.4s infinite; }
+
+  @media (max-width: 1100px) {
+    #bottombar { grid-template-columns: 1fr; } #controls { flex-direction: row; justify-content: center; }
+    #leftWrap { width: 17rem; } #rightWrap { width: 26rem; }
+  }
+</style>
+</head>
+
+<body class="bg-void text-white">
+
+<div id="stage"></div>
+<div id="vignette"></div>
+<div id="fx"></div>
+<svg id="leaders"></svg>
+<div id="markers"></div>
+<div id="labels"></div>
+
+<!-- ============ TOP NAVIGATION ============ -->
+<header id="topbar">
+  <nav id="tabs" class="glass backdrop-blur-md" aria-label="Presentation parts"></nav>
+  <div id="tagline" role="status"></div>
+</header>
+
+<!-- ============ LEFT: QUICK-SELECT LIST ============ -->
+<div id="leftWrap">
+  <aside id="regionList" class="glass backdrop-blur-md" aria-label="Brain regions">
+    <h2>Brain Regions</h2>
+    <div id="rlist"></div>
+  </aside>
+</div>
+
+<!-- ============ RIGHT: INFO CARD ============ -->
+<div id="rightWrap">
+  <section id="infoCard" class="glass backdrop-blur-md" aria-live="polite"></section>
+</div>
+
+<!-- ============ BOTTOM: SIMULATIONS + CAMERA ============ -->
+<footer id="bottombar">
+  <div id="controls">
+    <button id="btnReset" class="ctl glass backdrop-blur-md" title="Reset camera (Esc)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+      Reset Camera
+    </button>
+    <button id="btnRotate" class="ctl glass backdrop-blur-md active" title="Toggle auto-rotate (Space)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"/><path d="M21 3v6h-6"/></svg>
+      Auto-Rotate <span class="st" id="rotState">ON</span>
+    </button>
+  </div>
+
+  <div id="simWrap">
+    <div id="simLabel"><span class="live"></span><span id="simLabelTx">Brain State Simulation</span></div>
+    <div id="sims"></div>
+  </div>
+  <div></div>
+</footer>
+
+<div id="loading"><div class="lt">Initializing Neural Model</div></div>
+
+<!-- ============ LIBRARIES (official CDNs) ============ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+<script>
+(() => {
+'use strict';
+
+if (!window.THREE) {
+  document.querySelector('#loading .lt').textContent = 'Three.js failed to load — check internet connection';
+  return;
+}
+
+/* =====================================================================
+   0. DATA — regions, parts, simulations
+===================================================================== */
+const TAU = Math.PI * 2;
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+
+const PARTS = {
+  all: { n: 'All Regions', sub: 'Full Brain Overview',               tag: 'Full brain overview',                         c: '#A5B4FC' },
+  1:   { n: 'Part 1',      sub: 'Placebo & Nocebo Effect',            tag: 'Mind-Body & Expectation',                     c: '#7DD3FC' },
+  2:   { n: 'Part 2',      sub: 'Consciousness, Instincts & Stress',  tag: 'Synchronization, Love, Fear & Trauma',        c: '#FDBA74' },
+  3:   { n: 'Part 3',      sub: 'Language & Neuroplasticity',         tag: 'Structural Rewiring & Cognitive Control',     c: '#C4B5FD' }
+};
+
+// Bullets carry the parts they belong to; the card shows max 3 (part-relevant ones first).
+const REGIONS = [
+  { id: 'pfc', name: 'Prefrontal Cortex', short: 'Prefrontal Cortex', color: '#22E4FF', parts: [1, 2, 3],
+    role: 'Executive Hub & Rational Mind', keyLabel: 'Key Chemicals', key: 'Glutamate / Dopamine',
+    bullets: [
+      { t: 'Conscious awareness & self-reflection', p: [1, 2, 3] },
+      { t: 'Generates placebo expectation & logic', p: [1] },
+      { t: 'Inhibitory control (switching languages)', p: [3] },
+      { t: 'Quieted during intense love or panic', p: [2] } ],
+    foc: { t: [0, 0.25, 1.1], d: [0.55, 0.3, 1.0], r: 4.3 } },
+
+  { id: 'thal', name: 'Thalamus', short: 'Thalamus', color: '#FFC83D', parts: [2],
+    role: 'Sensory Relay & Consciousness Switch', keyLabel: 'Key Mechanism', key: 'Global Workspace Synchronization',
+    bullets: [
+      { t: 'Central sensory filter station', p: [2] },
+      { t: 'Synchronizes with Prefrontal Cortex', p: [2] },
+      { t: 'Broadcasts conscious awareness globally', p: [2] } ],
+    foc: { t: [0.1, 0.0, -0.1], d: [1.0, 0.45, 0.3], r: 4.4 } },
+
+  { id: 'hypo', name: 'Hypothalamus & Reward Pathway', short: 'Hypothalamus & Reward', color: '#FF3DB8', parts: [1, 2],
+    role: 'Survival Drives, Pleasure & Love', keyLabel: 'Key Chemicals', key: 'Dopamine, Endorphins, Oxytocin',
+    bullets: [
+      { t: 'Drives hunger & sexual pleasure', p: [2] },
+      { t: 'Romantic love & oxytocin bonding', p: [2] },
+      { t: 'Releases endorphins during Placebo relief', p: [1] } ],
+    foc: { t: [0, -0.35, 0.3], d: [0.9, -0.2, 0.55], r: 4.0 } },
+
+  { id: 'amyg', name: 'Amygdala', short: 'Amygdala', color: '#FF2D4D', parts: [1, 2],
+    role: 'Threat Detector, Fear & Nocebo', keyLabel: 'Key Chemicals', key: 'Cortisol & Adrenaline',
+    bullets: [
+      { t: 'Triggers acute stress & fear alarm', p: [2] },
+      { t: '"Amygdala Hijack" blocks rational brain', p: [2] },
+      { t: 'Drives Nocebo anxiety & physical pain', p: [1] } ],
+    foc: { t: [0.75, -0.3, 0.55], d: [1.0, 0.1, 0.55], r: 3.5 } },
+
+  { id: 'hippo', name: 'Hippocampus', short: 'Hippocampus', color: '#2BE38A', parts: [2, 3],
+    role: 'Memory Printer & Structural Plasticity', keyLabel: 'Key Mechanism', key: 'Gray Matter Growth & Consolidation',
+    bullets: [
+      { t: 'Consolidates short-term to long-term memory', p: [3] },
+      { t: 'Grows gray matter via language learning', p: [3] },
+      { t: 'Encodes deep emotional trauma memories', p: [2] } ],
+    foc: { t: [0.78, -0.18, -0.35], d: [1.0, 0.2, -0.1], r: 3.7 } },
+
+  { id: 'ipc', name: 'Inferior Parietal Cortex', short: 'Inferior Parietal Cortex', color: '#A66BFF', parts: [3],
+    role: 'Linguistic & Phonetic Integration Hub', keyLabel: 'Key Mechanism', key: 'Structural Neuroplasticity',
+    bullets: [
+      { t: 'Processes new sounds & grammar structures', p: [3] },
+      { t: 'Increases gray matter density', p: [3] },
+      { t: 'Builds long-term cognitive reserve', p: [3] } ],
+    foc: { t: [0.9, 0.5, -0.7], d: [0.9, 0.55, -0.7], r: 3.8 } },
+
+  { id: 'acc', name: 'Anterior Cingulate & Pain Matrix', short: 'Anterior Cingulate & Pain', color: '#FF9A1F', parts: [1, 3],
+    role: 'Pain Processing & Emotional Switch', keyLabel: 'Key Chemicals', key: 'Endorphins vs. Cortisol',
+    bullets: [
+      { t: 'Reduces pain activity during Placebo', p: [1] },
+      { t: 'Connects emotional trust to immune recovery', p: [1] },
+      { t: 'Emotional detachment in second language', p: [3] } ],
+    foc: { t: [0, 0.6, 0.45], d: [1.0, 0.3, 0.2], r: 3.9 } }
+];
+const RMAP = {}; REGIONS.forEach(r => RMAP[r.id] = r);
+
+const has = (t, id) => t.a === id || t.b === id;
+const pair = (t, a, b) => (t.a === a && t.b === b) || (t.a === b && t.b === a);
+
+const SIMS = [
+  { id: 'sync', label: 'Synchronized Consciousness', color: '#FFD166',
+    icon: '<circle cx="12" cy="12" r="2.6" fill="currentColor"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6"/>',
+    reg: { pfc: { i: 1.7, pa: .06, pf: 2.6 }, thal: { i: 1.9, pa: .08, pf: 2.6 }, hypo: { i: .38 }, amyg: { i: .38 }, hippo: { i: .4 }, ipc: { i: .5 }, acc: { i: .5 } },
+    tract: t => pair(t, 'thal', 'pfc') ? { speed: 5.8, bright: 2.5, thick: 2.6, ca: '#FFD166', cb: '#22E4FF' }
+             : (has(t, 'thal') || has(t, 'pfc')) ? { speed: 2.6, bright: 1.4, thick: 1.5, ca: '#FFD166', cb: '#22E4FF' }
+             : { speed: 1.5, bright: .6, thick: 1 },
+    tint: { c1: '#FFD166', c2: '#22E4FF', amt: .55, hz: .9 },
+    waves: { origin: V(0, 0, -0.1), period: 1.15, speed: 1.9, rmax: 2.3, colors: ['#FFD166', '#22E4FF'], scale: [.72, .58, .92] },
+    fx: { rgba: 'rgba(255,200,90,0.55)', amt: .35, hz: .9 } },
+
+  { id: 'hijack', label: 'Amygdala Hijack / Nocebo Stress', color: '#FF2D4D',
+    icon: '<path d="M13.5 2 4.5 13.5h6L9.5 22l10-12.5h-6.5z" fill="currentColor"/>',
+    reg: { amyg: { i: 2.3, pa: .26, pf: 2.4, ia: .35 }, hypo: { i: .95 }, hippo: { i: .9 }, thal: { i: .55 }, ipc: { i: .3 }, acc: { i: .75 }, pfc: { i: .07 } },
+    tract: t => has(t, 'amyg') ? { speed: 5.0, bright: 2.4, thick: 2.1, ca: '#FF1744', cb: '#FF6B4D' }
+             : (has(t, 'hypo') || has(t, 'hippo')) ? { speed: 3.6, bright: 1.6, thick: 1.5, ca: '#FF3D3D', cb: '#FF8A3D' }
+             : has(t, 'pfc') ? { speed: .45, bright: .1, thick: .6 }
+             : { speed: 1.3, bright: .4, thick: 1 },
+    tint: { c1: '#FF2D4D', c2: '#FF2D4D', amt: .5, hz: 1.4 },
+    waves: { origin: 'amyg', period: .62, speed: 2.4, rmax: 1.5, colors: ['#FF2D4D'], scale: [1, 1, 1] },
+    fx: { rgba: 'rgba(255,16,56,0.95)', amt: 1, hz: 1.4 } },
+
+  { id: 'dopa', label: 'Dopamine, Love & Placebo Relief', color: '#FF3DB8',
+    icon: '<path d="M12 21s-7.5-4.8-9.6-9.4C.9 8.2 3 4.8 6.4 4.8c2.2 0 3.9 1.2 5.6 3.4 1.7-2.2 3.4-3.4 5.6-3.4 3.4 0 5.5 3.400 4 6.800C19.500 16.200 12 21 12 21z" fill="currentColor"/>',
+    reg: { hypo: { i: 2.2, pa: .12, pf: .9, ia: .15 }, acc: { i: 1.4, pa: .04, pf: .9 }, pfc: { i: 1.1 }, thal: { i: .7 }, amyg: { i: .25 }, hippo: { i: .45 }, ipc: { i: .45 } },
+    tract: t => has(t, 'hypo') ? { speed: 2.2, bright: 2.1, thick: 2.2, ca: '#FF2FB3', cb: '#FFB8E8' }
+             : (has(t, 'acc') && (has(t, 'pfc') || has(t, 'thal'))) ? { speed: 1.5, bright: 1.5, thick: 1.5, ca: '#FF9AD5', cb: '#FFB347' }
+             : has(t, 'amyg') ? { speed: .5, bright: .22, thick: .8 }
+             : { speed: .9, bright: .55, thick: 1 },
+    tint: { c1: '#FF3DB8', c2: '#FFB8E8', amt: .45, hz: .5 },
+    waves: { origin: 'hypo', period: 1.7, speed: 1.35, rmax: 2.6, colors: ['#FF3DB8', '#FFB8E8', '#FF9A1F'], scale: [.72, .58, .92] },
+    fx: { rgba: 'rgba(255,60,190,0.55)', amt: .4, hz: .5 } },
+
+  { id: 'plast', label: 'Neuroplasticity / Language Workout', color: '#2BE38A',
+    icon: '<circle cx="5" cy="6" r="2.4" fill="currentColor"/><circle cx="19" cy="8" r="2.4" fill="currentColor"/><circle cx="12" cy="19" r="2.4" fill="currentColor"/><path d="M5 6 19 8 12 19z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+    reg: { pfc: { i: 1.5, pa: .04, pf: 1.2 }, ipc: { i: 1.75, pa: .05, pf: 1.2 }, hippo: { i: 1.85, pa: .14, pf: .8 }, thal: { i: .25 }, hypo: { i: .25 }, amyg: { i: .22 }, acc: { i: .3 } },
+    tract: t => (pair(t, 'pfc', 'ipc') || pair(t, 'pfc', 'hippo') || pair(t, 'ipc', 'hippo')) ? { speed: 2.9, bright: 2.7, thick: 3.4, tp: .28 }
+             : { speed: .5, bright: .18, thick: 1 },
+    tint: { c1: '#2BE38A', c2: '#A66BFF', amt: .3, hz: .6 },
+    waves: { origin: 'hippo', period: 2.1, speed: 1.0, rmax: 1.7, colors: ['#2BE38A', '#A66BFF', '#22E4FF'], scale: [1, 1, 1] },
+    fx: { rgba: 'rgba(60,230,150,0.5)', amt: .3, hz: .6 } }
+];
+
+/* =====================================================================
+   1. STATE
+===================================================================== */
+const state = { filter: 'all', selected: null, hover: null, sim: null, autoPrev: null };
+
+/* =====================================================================
+   2. THREE.JS SETUP
+===================================================================== */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x070B19, 1);
+renderer.domElement.style.touchAction = 'none';
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070B19);
+
+const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 100);
+const HOME = { t: V(0, 0, 0), dir: V(0.72, 0.36, 0.62).normalize(), r: 6.9 };
+camera.position.copy(HOME.dir).multiplyScalar(13);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.07;
+controls.enablePan = false; controls.minDistance = 2.2; controls.maxDistance = 12;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.9;
+controls.rotateSpeed = 0.7; controls.zoomSpeed = 0.7;
+controls.target.copy(HOME.t);
+
+// Bloom (graceful fallback if the postprocessing scripts are unavailable)
+let composer = null;
+if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
+  composer = new THREE.EffectComposer(renderer);
+  composer.addPass(new THREE.RenderPass(scene, camera));
+  composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.5, 0.28));
+}
+
+const timeU = { value: 0 };
+
+/* =====================================================================
+   3. MATERIALS
+===================================================================== */
+const shellVS = `
+  varying vec3 vN; varying vec3 vV; varying vec3 vP;
+  void main(){
+    vP = position;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vN = normalize(normalMatrix * normal);
+    vV = normalize(-mv.xyz);
+    gl_Position = projectionMatrix * mv;
+  }`;
+
+function makeShellMaterial(color, gain) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(color) }, uTint: { value: new THREE.Color('#ffffff') },
+      uTintAmt: { value: 0 }, uPulse: { value: 0 }, uGain: { value: gain || 1 }, uTime: timeU
+    },
+    vertexShader: shellVS,
+    fragmentShader: `
+      uniform vec3 uColor; uniform vec3 uTint; uniform float uTintAmt; uniform float uPulse; uniform float uGain; uniform float uTime;
+      varying vec3 vN; varying vec3 vV; varying vec3 vP;
+      void main(){
+        float f = 1.0 - abs(dot(normalize(vN), normalize(vV)));
+        float rim = pow(f, 2.4);
+        float scan = smoothstep(0.965, 1.0, sin(vP.y * 5.0 - uTime * 0.8)) * 0.10;
+        vec3 base = mix(uColor, uTint, uTintAmt);
+        vec3 col = base * (rim * 0.42 + 0.014 + scan * 0.6) * (1.0 + uPulse * 1.1);
+        col += uTint * uPulse * 0.035;
+        gl_FragColor = vec4(col * uGain, 1.0);
+      }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+  });
+}
+
+function makeGlowMaterial(color, grad) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(color) }, uIntensity: { value: 1 }, uGrad: { value: grad ? 1 : 0 }, uTime: timeU },
+    vertexShader: `
+      varying vec3 vN; varying vec3 vV; varying vec2 vUv;
+      void main(){ vUv = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uIntensity; uniform float uGrad; uniform float uTime;
+      varying vec3 vN; varying vec3 vV; varying vec2 vUv;
+      void main(){
+        float f = 1.0 - abs(dot(normalize(vN), normalize(vV)));
+        float rim = pow(f, 2.0);
+        float g = mix(1.0, 1.0 - 0.6 * smoothstep(0.35, 0.85, vUv.x), uGrad);
+        float inten = 1.2 * (1.0 - exp(-uIntensity * g * 1.1));
+        vec3 col = uColor * (0.32 + 0.55 * rim) * (0.12 + inten * 0.95) + uColor * rim * 0.12 * inten;
+        float a = clamp(0.4 + 0.6 * rim, 0.0, 1.0) * clamp(0.2 + 0.8 * inten, 0.0, 1.0);
+        gl_FragColor = vec4(col, a);
+      }`,
+    transparent: true, depthWrite: false
+  });
+}
+
+function makeTractMaterial(cA, cB) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColA: { value: cA.clone() }, uColB: { value: cB.clone() }, uBright: { value: 0.6 },
+      uThick: { value: 1 }, uPhase: { value: 0 }, uFreq: { value: 3.0 }
+    },
+    vertexShader: `
+      uniform float uThick; varying vec2 vUv;
+      void main(){ vUv = uv; vec3 p = position + normal * 0.019 * (uThick - 1.0);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
+    fragmentShader: `
+      uniform vec3 uColA; uniform vec3 uColB; uniform float uBright; uniform float uPhase; uniform float uFreq;
+      varying vec2 vUv;
+      void main(){
+        float band = pow(max(0.0, sin((vUv.x * uFreq - uPhase) * 6.2831853)), 6.0);
+        float edge = sin(vUv.x * 3.14159);
+        float lvl = (0.2 + band * 0.95) * uBright;
+        vec3 col = mix(uColA, uColB, vUv.x) * lvl;
+        gl_FragColor = vec4(col, clamp(lvl, 0.0, 1.0) * (0.5 + 0.5 * edge));
+      }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+}
+
+function makeGlowTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.45)');
+  gr.addColorStop(0.6, 'rgba(255,255,255,0.1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+const glowTex = makeGlowTexture();
+
+/* =====================================================================
+   4. CORTEX SHELL — procedural dual-hemisphere brain
+===================================================================== */
+function hash3(x, y, z) {
+  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177);
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+  return (h >>> 0) / 4294967295;
+}
+function vnoise(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+  const xf = x - xi, yf = y - yi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf), w = zf * zf * (3 - 2 * zf);
+  const l = (a, b, t) => a + (b - a) * t;
+  return l(
+    l(l(hash3(xi, yi, zi), hash3(xi + 1, yi, zi), u), l(hash3(xi, yi + 1, zi), hash3(xi + 1, yi + 1, zi), u), v),
+    l(l(hash3(xi, yi, zi + 1), hash3(xi + 1, yi, zi + 1), u), l(hash3(xi, yi + 1, zi + 1), hash3(xi + 1, yi + 1, zi + 1), u), v), w) * 2 - 1;
+}
+const TEMPORAL_DIR = V(0.92, -0.48, 0.12).normalize();
+const MEDIAL_OFFSET = 0.19;
+
+// d: unit direction on sphere (poles on ±z). Returns hemisphere-local point (lateral = +x).
+function brainPoint(d, seed) {
+  const n1 = vnoise(d.x * 3.1 + seed, d.y * 3.1 + seed * 0.7, d.z * 3.1 - seed);
+  const n2 = vnoise(d.x * 6.4 - seed, d.y * 6.4 + seed, d.z * 6.4 + seed * 0.5);
+  let r = 1 + 0.045 * Math.abs(n1) + 0.022 * Math.abs(n2);
+  r += 0.17 * Math.exp(-d.distanceToSquared(TEMPORAL_DIR) / 0.16);                         // temporal lobe bulge
+  const sylv = Math.exp(-Math.pow(d.y + 0.1 - 0.25 * d.z, 2) / 0.007) * sstep(0.35, 0.8, d.x) * sstep(-0.6, 0.1, d.z);
+  r -= 0.075 * sylv;                                                                        // lateral (Sylvian) groove
+  let x = d.x * r, y = d.y * r, z = d.z * r;
+  x *= (0.12 + 0.88 * sstep(-0.45, 0.05, x));                                                // flatten medial wall
+  const taper = 1 - 0.18 * sstep(0.15, 1, d.z) - 0.1 * sstep(0.3, 1, -d.z);
+  x *= 1.25 * taper;
+  y *= (y > 0 ? 1.2 : 0.72);
+  z *= 1.75;
+  return V(x, y, z);
+}
+
+function buildHemisphere(side, ws, hs, seed) {
+  const g = new THREE.SphereGeometry(1, ws, hs);
+  g.rotateX(Math.PI / 2);
+  const p = g.attributes.position, d = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    d.fromBufferAttribute(p, i).normalize();
+    const q = brainPoint(d, seed);
+    p.setXYZ(i, side * (q.x + MEDIAL_OFFSET), q.y, q.z);
+  }
+  g.computeVertexNormals();
+  // weld normals along the UV seam and poles so there is no visible line
+  const n = g.attributes.normal, W = ws + 1, tmp = new THREE.Vector3();
+  for (let iy = 0; iy <= hs; iy++) {
+    if (iy === 0 || iy === hs) {
+      tmp.set(0, 0, 0);
+      for (let ix = 0; ix < W; ix++) tmp.add(V(n.getX(iy * W + ix), n.getY(iy * W + ix), n.getZ(iy * W + ix)));
+      tmp.normalize();
+      for (let ix = 0; ix < W; ix++) n.setXYZ(iy * W + ix, tmp.x, tmp.y, tmp.z);
+    } else {
+      const a = iy * W, b = iy * W + ws;
+      tmp.set(n.getX(a) + n.getX(b), n.getY(a) + n.getY(b), n.getZ(a) + n.getZ(b)).normalize();
+      n.setXYZ(a, tmp.x, tmp.y, tmp.z); n.setXYZ(b, tmp.x, tmp.y, tmp.z);
+    }
+  }
+  return g;
+}
+
+function buildGridLines(side, ws, hs, seed) {
+  const g = new THREE.SphereGeometry(1, ws, hs);
+  g.rotateX(Math.PI / 2);
+  const p = g.attributes.position, d = new THREE.Vector3(), W = ws + 1, pts = [];
+  const P = [];
+  for (let i = 0; i < p.count; i++) {
+    d.fromBufferAttribute(p, i).normalize();
+    const q = brainPoint(d, seed);
+    P.push(V(side * (q.x + MEDIAL_OFFSET), q.y, q.z));
+    // nudge slightly outward from hemisphere center to avoid z-fighting
+    const c = V(side * MEDIAL_OFFSET, 0, 0); P[i].sub(c).multiplyScalar(1.004).add(c);
+  }
+  for (let iy = 1; iy < hs; iy++) for (let ix = 0; ix < ws; ix++) { const a = P[iy * W + ix], b = P[iy * W + ix + 1]; pts.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+  for (let iy = 0; iy < hs; iy++) for (let ix = 0; ix < ws; ix++) { const a = P[iy * W + ix], b = P[(iy + 1) * W + ix]; pts.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  return lg;
+}
+
+const brainGroup = new THREE.Group(); scene.add(brainGroup);
+const shellMats = [];
+const gridMat = new THREE.LineBasicMaterial({ color: 0x6FA8FF, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
+[[1, 1.7], [-1, 8.3]].forEach(([side, seed]) => {
+  const mat = makeShellMaterial('#5C93FF', 1); shellMats.push(mat);
+  const m = new THREE.Mesh(buildHemisphere(side, 120, 90, seed), mat); m.renderOrder = 2; brainGroup.add(m);
+  const l = new THREE.LineSegments(buildGridLines(side, 44, 34, seed), gridMat); l.renderOrder = 2; brainGroup.add(l);
+});
+
+// Cerebellum + brainstem (context only, dim)
+{
+  const cmat = makeShellMaterial('#6C86C8', 0.45); shellMats.push(cmat);
+  const cg = new THREE.SphereGeometry(1, 72, 52), cp = cg.attributes.position;
+  for (let i = 0; i < cp.count; i++) {
+    const x = cp.getX(i), y = cp.getY(i), z = cp.getZ(i);
+    const f = 1 + 0.035 * Math.sin(y * 34 + x * 2);
+    cp.setXYZ(i, x * 0.88 * f, y * 0.38 * f, z * 0.6 * f);
+  }
+  cg.computeVertexNormals();
+  const cb = new THREE.Mesh(cg, cmat); cb.position.set(0, -0.96, -1.18); cb.renderOrder = 2; brainGroup.add(cb);
+  const stemCurve = new THREE.CatmullRomCurve3([V(0, -0.45, 0.0), V(0, -0.95, -0.2), V(0, -1.55, -0.45), V(0, -2.0, -0.55)]);
+  const stem = new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 30, 0.15, 16, false), cmat); stem.renderOrder = 2; brainGroup.add(stem);
+}
+
+// Holographic ring + drifting dust for depth
+{
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.4, 0.008, 6, 160), new THREE.MeshBasicMaterial({ color: 0x4A78FF, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ring.rotation.x = Math.PI / 2; ring.position.y = -2.15; scene.add(ring);
+  const ring2 = ring.clone(); ring2.scale.setScalar(0.72); ring2.material = ring.material.clone(); ring2.material.opacity = 0.25; scene.add(ring2);
+  const N = 500, arr = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) { const r = 5 + Math.random() * 7, a = Math.random() * TAU, b = Math.acos(2 * Math.random() - 1);
+    arr[i * 3] = r * Math.sin(b) * Math.cos(a); arr[i * 3 + 1] = r * Math.cos(b) * 0.7; arr[i * 3 + 2] = r * Math.sin(b) * Math.sin(a); }
+  const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  var dust = new THREE.Points(dg, new THREE.PointsMaterial({ size: 0.06, map: glowTex, color: 0x7C9BFF, transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending }));
+  scene.add(dust);
+}
+
+/* =====================================================================
+   5. REGION STRUCTURES
+===================================================================== */
+const hitMeshes = [];
+const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+const R = {};                       // id -> runtime region
+REGIONS.forEach((def, idx) => {
+  R[def.id] = Object.assign({}, def, {
+    idx, col: new THREE.Color(def.color), group: new THREE.Group(), mat: makeGlowMaterial(def.color, false),
+    mats: [], wires: [], halos: [], holders: [], intensity: 0.8, phase: idx * 1.3, anchorFn: null, labelPts: []
+  });
+  R[def.id].mats.push(R[def.id].mat);
+  brainGroup.add(R[def.id].group);
+});
+
+function addHalo(reg, holder, pos, size) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: reg.col, transparent: true, opacity: 0.4, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
+  s.position.copy(pos); s.scale.setScalar(size); s.userData.s = size; s.renderOrder = 5;
+  holder.add(s); reg.halos.push(s);
+}
+
+// Ellipsoid structure with wire overlay + halo + hit proxy
+function addBlob(reg, pos, radii, opts = {}) {
+  const holder = new THREE.Group(); holder.position.set(pos[0], pos[1], pos[2]);
+  const mat = opts.mat || reg.mat;
+  const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 4), mat); mesh.scale.set(radii[0], radii[1], radii[2]);
+  if (opts.rot) mesh.rotation.set(opts.rot[0], opts.rot[1], opts.rot[2]);
+  holder.add(mesh);
+  const wm = new THREE.LineBasicMaterial({ color: reg.col, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+  const wire = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.IcosahedronGeometry(1, 2)), wm);
+  wire.scale.copy(mesh.scale).multiplyScalar(1.04); wire.rotation.copy(mesh.rotation); holder.add(wire); reg.wires.push(wm);
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), hitMat); hit.scale.copy(mesh.scale).multiplyScalar(1.45); hit.userData.rid = reg.id; holder.add(hit); hitMeshes.push(hit);
+  addHalo(reg, holder, V(0, 0, 0), Math.max(...radii) * 3.2);
+  reg.group.add(holder); reg.holders.push(holder);
+  return holder;
+}
+
+// Tapered tube structure (hippocampus / cingulate / reward fibers).
+// Geometry is centred on its centroid so pulses scale about the structure's middle.
+function addTube(reg, worldPts, radiusFn, opts = {}) {
+  const c = new THREE.Vector3(); worldPts.forEach(p => c.add(p)); c.multiplyScalar(1 / worldPts.length);
+  const curveW = new THREE.CatmullRomCurve3(worldPts);
+  const curveL = new THREE.CatmullRomCurve3(worldPts.map(p => p.clone().sub(c)));
+  const seg = opts.seg || 90, rad = opts.rad || 12;
+  const geo = new THREE.TubeGeometry(curveL, seg, 1, rad, false);
+  const pos = geo.attributes.position;
+  for (let i = 0; i <= seg; i++) {
+    const u = i / seg, ctr = curveL.getPointAt(u), r = radiusFn(u);
+    for (let j = 0; j <= rad; j++) {
+      const k = i * (rad + 1) + j;
+      pos.setXYZ(k, ctr.x + (pos.getX(k) - ctr.x) * r, ctr.y + (pos.getY(k) - ctr.y) * r, ctr.z + (pos.getZ(k) - ctr.z) * r);
+    }
+  }
+  const holder = new THREE.Group(); holder.position.copy(c);
+  holder.add(new THREE.Mesh(geo, opts.mat || reg.mat));
+  if (opts.caps !== false) [0, 1].forEach(e => {
+    const cap = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 3), opts.mat || reg.mat);
+    cap.position.copy(curveL.getPointAt(e)); cap.scale.setScalar(radiusFn(e)); holder.add(cap);
+  });
+  if (opts.hit !== false) {
+    const hit = new THREE.Mesh(new THREE.TubeGeometry(curveL, 40, opts.hitR || 0.16, 8, false), hitMat);
+    hit.userData.rid = reg.id; holder.add(hit); hitMeshes.push(hit);
+  }
+  (opts.halos || []).forEach(h => addHalo(reg, holder, curveL.getPointAt(h[0]), h[1]));
+  reg.group.add(holder); reg.holders.push(holder);
+  return curveW;
+}
+
+// ---- 1. Prefrontal Cortex
+{
+  const r = R.pfc;
+  [1, -1].forEach(s => addBlob(r, [s * 0.45, 0.28, 1.05], [0.33, 0.46, 0.36]));
+  r.anchorFn = (u, s) => V(s * 0.45, 0.28, 1.05);
+  r.labelPts = [V(0.45, 0.28, 1.05), V(-0.45, 0.28, 1.05)];
+}
+// ---- 2. Thalamus
+{
+  const r = R.thal;
+  [1, -1].forEach(s => addBlob(r, [s * 0.24, 0.02, -0.12], [0.2, 0.19, 0.3]));
+  r.anchorFn = (u, s) => V(s * 0.24, 0.02, -0.12);
+  r.labelPts = [V(0.24, 0.02, -0.12), V(-0.24, 0.02, -0.12)];
+}
+// ---- 3. Hypothalamus & Reward Pathway
+{
+  const r = R.hypo;
+  addBlob(r, [0, -0.4, 0.3], [0.17, 0.13, 0.2]);
+  addBlob(r, [0, -0.42, -0.3], [0.08, 0.08, 0.08]);                                   // VTA
+  [1, -1].forEach(s => {
+    addBlob(r, [s * 0.22, -0.18, 0.72], [0.11, 0.11, 0.11]);                           // nucleus accumbens
+    addTube(r, [V(0, -0.42, -0.3), V(s * 0.03, -0.4, 0.05), V(s * 0.12, -0.3, 0.4), V(s * 0.22, -0.18, 0.72)], () => 0.02, { caps: false, hit: false, seg: 40, rad: 6 });
+  });
+  r.anchorFn = (u, s) => V(s * 0.1, -0.38, 0.3);
+  r.labelPts = [V(0, -0.4, 0.3)];
+}
+// ---- 4. Amygdala
+{
+  const r = R.amyg;
+  [1, -1].forEach(s => addBlob(r, [s * 0.75, -0.3, 0.55], [0.14, 0.13, 0.17]));
+  r.anchorFn = (u, s) => V(s * 0.75, -0.3, 0.55);
+  r.labelPts = [V(0.75, -0.3, 0.55), V(-0.75, -0.3, 0.55)];
+}
+// ---- 5. Hippocampus (seahorse)
+{
+  const r = R.hippo, curves = {};
+  const pts = [[0.8, -0.38, 0.3], [0.88, -0.35, -0.1], [0.85, -0.2, -0.5], [0.7, 0.05, -0.9], [0.45, 0.3, -1.1]];
+  [1, -1].forEach(s => {
+    curves[s] = addTube(r, pts.map(p => V(s * p[0], p[1], p[2])), u => (0.05 + 0.08 * Math.pow(1 - u, 1.4)) * (1 + 0.1 * Math.sin(u * 34)),
+      { halos: [[0.12, 0.6], [0.5, 0.7], [0.88, 0.5]], hitR: 0.17 });
+  });
+  r.anchorFn = (u, s) => curves[s].getPointAt(u);
+  r.labelPts = [curves[1].getPointAt(0.5), curves[-1].getPointAt(0.5)];
+}
+// ---- 6. Inferior Parietal Cortex
+{
+  const r = R.ipc;
+  [1, -1].forEach(s => {
+    addBlob(r, [s * 0.95, 0.58, -0.45], [0.2, 0.17, 0.24]);
+    addBlob(r, [s * 0.85, 0.5, -0.98], [0.19, 0.17, 0.2]);
+  });
+  r.anchorFn = (u, s) => V(s * 0.9, 0.52, -0.7);
+  r.labelPts = [V(0.9, 0.52, -0.7), V(-0.9, 0.52, -0.7)];
+}
+// ---- 7. Anterior Cingulate & Pain Matrix
+{
+  const r = R.acc;
+  r.matGrad = makeGlowMaterial(r.color, true); r.mats.push(r.matGrad);
+  const curve = addTube(r, [V(0, 0.1, 1.05), V(0, 0.5, 1.0), V(0, 0.78, 0.6), V(0, 0.87, 0.05), V(0, 0.8, -0.55), V(0, 0.55, -1.0)],
+    u => 0.05 + 0.07 * (1 - sstep(0.1, 0.75, u)), { mat: r.matGrad, halos: [[0.25, 0.9], [0.55, 0.55]], hitR: 0.15 });
+  [1, -1].forEach(s => addBlob(r, [s * 1.0, 0.0, 0.45], [0.12, 0.13, 0.15]));          // insula nodes
+  r.anchorFn = (u, s) => curve.getPointAt(u).add(V(s * 0.08, 0, 0));
+  r.labelPts = [curve.getPointAt(0.3)];
+}
+
+/* =====================================================================
+   6. NEURAL TRACTS + SIGNAL PARTICLES
+===================================================================== */
+const TRACT_DEFS = [
+  ['pfc', 0.5, 'thal', 0.5], ['pfc', 0.5, 'acc', 0.25], ['pfc', 0.5, 'hypo', 0.5], ['pfc', 0.5, 'amyg', 0.5],
+  ['pfc', 0.5, 'hippo', 0.5], ['pfc', 0.5, 'ipc', 0.5], ['thal', 0.5, 'acc', 0.5], ['thal', 0.5, 'ipc', 0.5],
+  ['thal', 0.5, 'hypo', 0.5], ['thal', 0.5, 'amyg', 0.5], ['amyg', 0.5, 'hippo', 0.3], ['amyg', 0.5, 'hypo', 0.5],
+  ['hypo', 0.5, 'acc', 0.4], ['ipc', 0.5, 'hippo', 0.7]
+];
+const tracts = [];
+const tractGroup = new THREE.Group(); brainGroup.add(tractGroup);
+const PPT = 5, TRAIL = 3, LAG = 0.016;
+
+TRACT_DEFS.forEach((d, di) => [1, -1].forEach(s => {
+  const A = R[d[0]], B = R[d[2]];
+  const pa = A.anchorFn(d[1], s), pb = B.anchorFn(d[3], s);
+  const mid = pa.clone().add(pb).multiplyScalar(0.5), len = pa.distanceTo(pb);
+  const out = mid.clone().sub(V(0, -0.15, 0)).normalize();
+  const jit = V((hash3(di, s + 2, 1) - .5) * .08, (hash3(di, s + 2, 2) - .5) * .08, (hash3(di, s + 2, 3) - .5) * .08);
+  const m = mid.clone().add(out.multiplyScalar(Math.min(0.28, len * 0.16))).add(jit);
+  const curve = new THREE.CatmullRomCurve3([pa, m, pb], false, 'centripetal');
+  const mat = makeTractMaterial(A.col, B.col);
+  mat.uniforms.uFreq.value = Math.max(1.5, len * 1.6);
+  const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 56, 0.019, 6, false), mat); mesh.renderOrder = 3; tractGroup.add(mesh);
+  tracts.push({
+    a: d[0], b: d[2], curve, mat, side: s, phase: hash3(di, s + 5, 9), base: 0.2 + hash3(di, s + 3, 4) * 0.1,
+    speed: 1, bright: 0.6, thick: 1, cA: A.col.clone(), cB: B.col.clone(), fx: null
+  });
+}));
+
+const PCOUNT = tracts.length * PPT * TRAIL;
+const pPos = new Float32Array(PCOUNT * 3), pCol = new Float32Array(PCOUNT * 3), pSize = new Float32Array(PCOUNT);
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3).setUsage(THREE.DynamicDrawUsage));
+pGeo.setAttribute('aColor', new THREE.BufferAttribute(pCol, 3).setUsage(THREE.DynamicDrawUsage));
+pGeo.setAttribute('aSize', new THREE.BufferAttribute(pSize, 1).setUsage(THREE.DynamicDrawUsage));
+const pMat = new THREE.ShaderMaterial({
+  uniforms: { uScale: { value: 600 } },
+  vertexShader: `
+    attribute float aSize; attribute vec3 aColor; varying vec3 vC; uniform float uScale;
+    void main(){ vC = aColor; vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = aSize * uScale / -mv.z; gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `
+    varying vec3 vC;
+    void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float a = clamp(1.0 - d, 0.0, 1.0); a *= a;
+      gl_FragColor = vec4(vC + vec3(pow(a, 4.0)) * 0.6, a); }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+});
+const particles = new THREE.Points(pGeo, pMat); particles.frustumCulled = false; particles.renderOrder = 4; brainGroup.add(particles);
+
+const _tp = new THREE.Vector3();
+function updateParticles() {
+  let k = 0;
+  for (let ti = 0; ti < tracts.length; ti++) {
+    const tr = tracts[ti], br = tr.bright, size0 = 0.075 * (0.55 + 0.55 * Math.sqrt(Math.max(br, 0)));
+    for (let p = 0; p < PPT; p++) {
+      const dir = (p % 2 === 0) ? 1 : -1, off = p / PPT + ti * 0.137;
+      let t = (off + tr.phase * dir) % 1; if (t < 0) t += 1;
+      for (let q = 0; q < TRAIL; q++, k++) {
+        const raw = t - dir * q * LAG;
+        if (raw < 0 || raw > 1 || br < 0.03) { pSize[k] = 0; continue; }
+        tr.curve.getPoint(raw, _tp);
+        pPos[k * 3] = _tp.x; pPos[k * 3 + 1] = _tp.y; pPos[k * 3 + 2] = _tp.z;
+        const f = (1 - q * 0.32) * Math.min(br, 2.6) * 0.9;
+        pCol[k * 3] = (tr.cA.r + (tr.cB.r - tr.cA.r) * raw) * f;
+        pCol[k * 3 + 1] = (tr.cA.g + (tr.cB.g - tr.cA.g) * raw) * f;
+        pCol[k * 3 + 2] = (tr.cA.b + (tr.cB.b - tr.cA.b) * raw) * f;
+        pSize[k] = size0 * (1 - q * 0.25);
+      }
+    }
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.aColor.needsUpdate = true; pGeo.attributes.aSize.needsUpdate = true;
+}
+
+/* =====================================================================
+   7. SIMULATION WAVES (expanding translucent shells)
+===================================================================== */
+const waves = [];
+for (let i = 0; i < 8; i++) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color('#fff') }, uAlpha: { value: 0 } },
+    vertexShader: shellVS,
+    fragmentShader: `uniform vec3 uColor; uniform float uAlpha; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+      void main(){ float f = 1.0 - abs(dot(normalize(vN), normalize(vV))); float rim = pow(f, 1.7);
+        gl_FragColor = vec4(uColor * (0.12 + rim * 1.5) * uAlpha, 1.0); }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+  });
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 32), mat); mesh.visible = false; mesh.renderOrder = 6; brainGroup.add(mesh);
+  waves.push({ mesh, mat, active: false, age: 0, life: 1, speed: 1, sc: [1, 1, 1] });
+}
+function spawnWave(origin, color, speed, rmax, sc) {
+  const w = waves.find(x => !x.active); if (!w) return;
+  w.active = true; w.age = 0; w.speed = speed; w.life = rmax / speed; w.sc = sc;
+  w.mesh.position.copy(origin); w.mat.uniforms.uColor.value.set(color); w.mesh.visible = true;
+}
+
+/* =====================================================================
+   8. CAMERA FLIGHTS
+===================================================================== */
+let tween = null;
+const easeIO = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function flyTo(target, dir, dist, dur = 1.5) {
+  const off0 = camera.position.clone().sub(controls.target), r0 = off0.length(), d0 = off0.clone().normalize(), d1 = dir.clone().normalize();
+  tween = { t: 0, dur, t0: controls.target.clone(), t1: target.clone(), r0, r1: dist, d0, q: new THREE.Quaternion().setFromUnitVectors(d0, d1) };
+}
+const _id = new THREE.Quaternion(), _qs = new THREE.Quaternion();
+function updateTween(dt) {
+  if (!tween) return;
+  tween.t += dt / tween.dur; const e = easeIO(Math.min(1, tween.t));
+  controls.target.lerpVectors(tween.t0, tween.t1, e);
+  _qs.copy(_id).slerp(tween.q, e);
+  const off = tween.d0.clone().applyQuaternion(_qs).multiplyScalar(tween.r0 + (tween.r1 - tween.r0) * e);
+  camera.position.copy(controls.target).add(off);
+  if (tween.t >= 1) tween = null;
+}
+controls.addEventListener('start', () => { tween = null; });
+
+/* =====================================================================
+   9. UI — build DOM
+===================================================================== */
+const $ = id => document.getElementById(id);
+const tabsEl = $('tabs'), listEl = $('rlist'), cardEl = $('infoCard'), simsEl = $('sims');
+const markersEl = $('markers'), labelsEl = $('labels'), leadersEl = $('leaders');
+
+['all', '1', '2', '3'].forEach(k => {
+  const p = PARTS[k], b = document.createElement('button');
+  b.className = 'tab'; b.id = 'tab-' + k; b.dataset.f = k; b.style.setProperty('--c', p.c);
+  b.innerHTML = `<span class="t1">${p.n}</span><span class="t2">${p.sub}</span>`;
+  b.addEventListener('click', () => setFilter(k));
+  tabsEl.appendChild(b);
+});
+
+REGIONS.forEach(def => {
+  const r = R[def.id];
+  // sidebar item
+  const b = document.createElement('button'); b.className = 'ritem'; b.id = 'item-' + def.id; b.style.setProperty('--c', def.color);
+  b.innerHTML = `<span class="dot"></span><span class="rname">${def.short}</span><span class="chips">${[1, 2, 3].map(n => `<i data-p="${n}" class="${def.parts.includes(n) ? 'on' : 'off'}" style="${def.parts.includes(n) ? '' : 'visibility:hidden'}">${n}</i>`).join('')}</span>`;
+  b.addEventListener('click', () => select(def.id));
+  b.addEventListener('pointerenter', () => state.hover = def.id);
+  b.addEventListener('pointerleave', () => { if (state.hover === def.id) state.hover = null; });
+  listEl.appendChild(b); r.itemEl = b;
+  // 3D marker
+  const m = document.createElement('button'); m.className = 'mk'; m.id = 'marker-' + def.id; m.style.setProperty('--c', def.color); m.setAttribute('aria-label', def.name);
+  m.innerHTML = '<i></i>';
+  m.addEventListener('click', () => select(def.id));
+  m.addEventListener('pointerenter', () => state.hover = def.id);
+  m.addEventListener('pointerleave', () => { if (state.hover === def.id) state.hover = null; });
+  markersEl.appendChild(m); r.markerEl = m;
+  // label + leader
+  const l = document.createElement('div'); l.className = 'lb'; l.style.setProperty('--c', def.color); l.textContent = def.short; labelsEl.appendChild(l); r.labelEl = l;
+  const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line'); ln.setAttribute('stroke', def.color); leadersEl.appendChild(ln); r.lineEl = ln;
+});
+
+SIMS.forEach(s => {
+  const b = document.createElement('button'); b.className = 'sim glass backdrop-blur-md'; b.id = 'sim-' + s.id; b.style.setProperty('--c', s.color); b.setAttribute('aria-pressed', 'false');
+  b.innerHTML = `<span class="ic"><svg viewBox="0 0 24 24">${s.icon}</svg></span><span class="tx">${s.label}</span>`;
+  b.addEventListener('click', () => toggleSim(s.id));
+  simsEl.appendChild(b); s.el = b;
+});
+
+function visibleBullets(def) {
+  const f = state.filter;
+  const arr = def.bullets.map((b, i) => ({ b, i, rank: (f !== 'all' && b.p.includes(f)) ? 0 : 1 }));
+  arr.sort((x, y) => x.rank - y.rank || x.i - y.i);
+  return arr.slice(0, 3).map(x => x.b.t);
+}
+
+function renderCard() {
+  const def = state.selected ? RMAP[state.selected] : null;
+  if (!def) {
+    cardEl.style.setProperty('--c', '#22E4FF');
+    cardEl.innerHTML = `<div id="hintCard"><div class="hk">Explore</div><div class="hv"><span class="pulse-ring"></span>Tap a glowing region</div><div class="hs">Click the 3D brain or pick from the list</div></div>`;
+  } else {
+    cardEl.style.setProperty('--c', def.color);
+    cardEl.innerHTML = `<button id="closeCard" aria-label="Close">×</button>
+      <h3>${def.name}</h3>
+      <span class="badge">${def.role}</span>
+      <div class="keybox"><div class="kl">${def.keyLabel}</div><div class="kv">${def.key}</div></div>
+      <ul>${visibleBullets(def).map(t => `<li>${t}</li>`).join('')}</ul>`;
+    $('closeCard').addEventListener('click', () => deselect());
+  }
+  cardEl.classList.remove('card-in'); void cardEl.offsetWidth; cardEl.classList.add('card-in');
+}
+
+function refreshUI() {
+  const f = state.filter, P = PARTS[f];
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.f === String(f)));
+  const tg = $('tagline'); tg.style.setProperty('--c', P.c);
+  tg.innerHTML = f === 'all' ? `<b>All 7 regions</b> · ${P.tag}` : `<b>${P.n}</b> · ${P.tag}`;
+  REGIONS.forEach(def => {
+    const active = f === 'all' || def.parts.includes(f), r = R[def.id];
+    r.itemEl.classList.toggle('sel', state.selected === def.id);
+    r.itemEl.classList.toggle('dim', !active);
+    r.itemEl.querySelectorAll('.chips i').forEach(c => c.classList.toggle('hit', f === 'all' ? true : Number(c.dataset.p) === f));
+    r.markerEl.classList.toggle('dim', !active);
+    r.markerEl.classList.toggle('on', state.selected === def.id);
+  });
+}
+
+/* =====================================================================
+   10. ACTIONS
+===================================================================== */
+const rotBtn = $('btnRotate'), rotState = $('rotState');
+function setAuto(on) {
+  controls.autoRotate = on; rotBtn.classList.toggle('active', on); rotState.textContent = on ? 'ON' : 'OFF';
+}
+
+function setFilter(f) {
+  state.filter = f === 'all' ? 'all' : Number(f);
+  refreshUI(); if (state.selected) renderCard();
+}
+
+function select(id) {
+  if (state.selected === id) return;
+  if (state.selected === null) state.autoPrev = controls.autoRotate;
+  state.selected = id; setAuto(false);
+  const def = RMAP[id], foc = def.foc, s = camera.position.x >= 0 ? 1 : -1;
+  flyTo(V(foc.t[0] * s, foc.t[1], foc.t[2]), V(foc.d[0] * s, foc.d[1], foc.d[2]), foc.r);
+  refreshUI(); renderCard();
+}
+
+function deselect() {
+  if (state.selected === null) return;
+  state.selected = null;
+  if (state.autoPrev !== null) { setAuto(state.autoPrev); state.autoPrev = null; }
+  refreshUI(); renderCard();
+}
+
+function resetCamera() {
+  const wasSel = state.selected !== null; deselect();
+  flyTo(HOME.t, HOME.dir, HOME.r, 1.5);
+  if (!wasSel && state.autoPrev === null) { /* keep user's auto-rotate preference */ }
+}
+
+let simTimer = 0, simWaveIdx = 0;
+function toggleSim(id) {
+  state.sim = (state.sim === id) ? null : id; simTimer = 99; simWaveIdx = 0;
+  const sim = SIMS.find(s => s.id === state.sim);
+  SIMS.forEach(s => { s.el.classList.toggle('on', s.id === state.sim); s.el.setAttribute('aria-pressed', String(s.id === state.sim)); });
+  const lab = $('simLabel'); lab.classList.toggle('running', !!sim);
+  lab.style.setProperty('--c', sim ? sim.color : '#666');
+  $('simLabelTx').textContent = sim ? 'Running · ' + sim.label : 'Brain State Simulation';
+  if (sim) $('fx').style.setProperty('--fx', sim.fx.rgba);
+}
+
+$('btnReset').addEventListener('click', resetCamera);
+rotBtn.addEventListener('click', () => { setAuto(!controls.autoRotate); state.autoPrev = null; });
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') resetCamera();
+  else if (e.key === ' ') { e.preventDefault(); setAuto(!controls.autoRotate); state.autoPrev = null; }
+  else if (/^[1-7]$/.test(e.key)) select(REGIONS[Number(e.key) - 1].id);
+  else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    const i = state.selected ? REGIONS.findIndex(r => r.id === state.selected) : -1, n = REGIONS.length;
+    const j = e.key === 'ArrowRight' ? (i + 1) % n : (i - 1 + n) % n;
+    state.selected = null; select(REGIONS[j < 0 ? n - 1 : j].id);
+  }
+  else if (['q', 'w', 'e', 'r'].includes(e.key.toLowerCase())) toggleSim(SIMS['qwer'.indexOf(e.key.toLowerCase())].id);
+  else if (['a', 's', 'd', 'f'].includes(e.key.toLowerCase())) setFilter(['all', 1, 2, 3]['asdf'.indexOf(e.key.toLowerCase())]);
+});
+
+/* ---------- 3D picking (Raycaster) ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function pick(cx, cy) {
+  ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(hitMeshes, false)[0];
+  return hit ? hit.object.userData.rid : null;
+}
+let down = null, hoverFrom3D = false;
+const dom = renderer.domElement;
+dom.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+dom.addEventListener('pointerup', e => {
+  if (!down) return;
+  const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null;
+  if (moved < 7 && dt < 700) { const id = pick(e.clientX, e.clientY); if (id) select(id); }
+});
+dom.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch' || down) return;
+  const id = pick(e.clientX, e.clientY);
+  hoverFrom3D = !!id; state.hover = id; dom.style.cursor = id ? 'pointer' : 'grab';
+});
+dom.addEventListener('pointerleave', () => { if (hoverFrom3D) state.hover = null; });
+
+/* =====================================================================
+   11. PER-FRAME UPDATE
+===================================================================== */
+const colTmpA = new THREE.Color(), colTmpB = new THREE.Color();
+let tintAmt = 0, fxAmt = 0; const tintCol = new THREE.Color('#5C93FF');
+const baseShell = new THREE.Color('#5C93FF');
+const fxEl = $('fx');
+
+function updateRegions(dt, time) {
+  const sim = SIMS.find(s => s.id === state.sim), f = state.filter, k = Math.min(1, dt * 5);
+  REGIONS.forEach(def => {
+    const r = R[def.id], sp = sim ? sim.reg[def.id] : null;
+    const active = f === 'all' || def.parts.includes(f);
+    let tgt = sp ? sp.i : (active ? (f === 'all' ? 0.85 : 1.0) : 0.13);
+    if (state.selected) {
+      if (sim) tgt = (def.id === state.selected) ? tgt + 0.3 : tgt * 0.9;
+      else tgt = (def.id === state.selected) ? Math.max(tgt, 1.0) + 0.35 : tgt * 0.72;
+    }
+    if (state.hover === def.id) tgt += 0.3;
+    r.intensity += (tgt - r.intensity) * k;
+    let sc = 1 + 0.025 * Math.sin(time * 1.6 + r.phase), inten = r.intensity;
+    if (sp) {
+      if (sp.pa) sc += sp.pa * Math.sin(time * TAU * sp.pf) * (sim.id === 'hijack' ? 1 : 1);
+      if (sp.ia) inten *= 1 + sp.ia * Math.sin(time * TAU * sp.pf);
+    }
+    r.mats.forEach(m => m.uniforms.uIntensity.value = inten);
+    r.holders.forEach(h => h.scale.setScalar(sc));
+    const hOp = clamp(0.04 + inten * 0.13, 0, 0.3);
+    r.halos.forEach(h => { h.material.opacity = hOp; h.scale.setScalar(h.userData.s * (0.75 + 0.3 * inten)); });
+    const wOp = clamp(inten * 0.32, 0.04, 0.75); r.wires.forEach(w => w.opacity = wOp);
+  });
+}
+
+function updateTracts(dt, time) {
+  const sim = SIMS.find(s => s.id === state.sim), f = state.filter, k = Math.min(1, dt * 4);
+  tracts.forEach(tr => {
+    const A = R[tr.a], B = R[tr.b];
+    let tb, ts, tt, ca = A.col, cb = B.col;
+    if (sim) {
+      const fx = sim.tract(tr); tb = fx.bright; ts = fx.speed; tt = fx.thick * (1 + (fx.tp || 0) * Math.sin(time * 2.4 + tr.base * 20));
+      if (fx.ca) { colTmpA.set(fx.ca); ca = colTmpA; } if (fx.cb) { colTmpB.set(fx.cb); cb = colTmpB; }
+    } else {
+      const aa = f === 'all' || A.parts.includes(f), ab = f === 'all' || B.parts.includes(f);
+      tb = f === 'all' ? 0.65 : (aa && ab ? 1.0 : (aa || ab ? 0.25 : 0.08)); ts = 1; tt = 1;
+    }
+    if (state.selected) { const touch = has(tr, state.selected); tb *= touch ? 1.7 : 0.55; if (touch) tt *= 1.5; }
+    tr.bright += (tb - tr.bright) * k; tr.speed += (ts - tr.speed) * k; tr.thick += (tt - tr.thick) * k;
+    tr.cA.lerp(ca, k); tr.cB.lerp(cb, k);
+    tr.phase += dt * tr.base * tr.speed;
+    const u = tr.mat.uniforms; u.uPhase.value = tr.phase * 3.2; u.uBright.value = tr.bright; u.uThick.value = tr.thick;
+    u.uColA.value.copy(tr.cA); u.uColB.value.copy(tr.cB);
+  });
+}
+
+function updateShellAndFx(dt, time) {
+  const sim = SIMS.find(s => s.id === state.sim), k = Math.min(1, dt * 3);
+  const tgtAmt = sim ? sim.tint.amt : 0;
+  tintAmt += (tgtAmt - tintAmt) * k;
+  let wave = 0.5 + 0.5 * Math.sin(time * TAU * (sim ? sim.tint.hz : 1));
+  if (sim) {
+    if (sim.id === 'hijack') wave = Math.pow(wave, 3);
+    colTmpA.set(sim.tint.c1); colTmpB.set(sim.tint.c2);
+    tintCol.copy(colTmpA).lerp(colTmpB, 0.5 + 0.5 * Math.sin(time * 1.7));
+  }
+  shellMats.forEach(m => {
+    m.uniforms.uTint.value.copy(tintCol);
+    m.uniforms.uTintAmt.value = tintAmt * (0.4 + 0.6 * wave);
+    m.uniforms.uPulse.value = tintAmt * wave * 0.6;
+  });
+  const fxT = sim ? sim.fx.amt : 0; fxAmt += (fxT - fxAmt) * k;
+  let fw = sim ? 0.5 + 0.5 * Math.sin(time * TAU * sim.fx.hz) : 0; if (sim && sim.id === 'hijack') fw = Math.pow(fw, 2);
+  fxEl.style.opacity = (fxAmt * (0.45 + 0.55 * fw)).toFixed(3);
+}
+
+function updateWaves(dt) {
+  const sim = SIMS.find(s => s.id === state.sim);
+  if (sim) {
+    simTimer += dt;
+    if (simTimer >= sim.waves.period) {
+      simTimer = 0; const w = sim.waves, col = w.colors[simWaveIdx % w.colors.length]; simWaveIdx++;
+      if (w.origin === 'amyg') spawnWave(R.amyg.anchorFn(0, simWaveIdx % 2 ? 1 : -1), col, w.speed, w.rmax, w.scale);
+      else if (typeof w.origin === 'string') spawnWave(R[w.origin].anchorFn(0.5, camera.position.x >= 0 ? 1 : -1), col, w.speed, w.rmax, w.scale);
+      else spawnWave(w.origin, col, w.speed, w.rmax, w.scale);
+    }
+  }
+  waves.forEach(w => {
+    if (!w.active) return;
+    w.age += dt; const r = w.age * w.speed, t = w.age / w.life;
+    if (t >= 1) { w.active = false; w.mesh.visible = false; return; }
+    w.mesh.scale.set(r * w.sc[0], r * w.sc[1], r * w.sc[2]);
+    w.mat.uniforms.uAlpha.value = Math.pow(1 - t, 1.6) * 0.55;
+  });
+}
+
+const _lp = new THREE.Vector3();
+function updateLabels() {
+  const W = window.innerWidth, H = window.innerHeight; camera.updateMatrixWorld();
+  REGIONS.forEach(def => {
+    const r = R[def.id];
+    let best = null, bd = 1e9;
+    r.labelPts.forEach(p => { _lp.copy(p).applyMatrix4(brainGroup.matrixWorld); const d = _lp.distanceTo(camera.position); if (d < bd) { bd = d; best = p; } });
+    _lp.copy(best).applyMatrix4(brainGroup.matrixWorld).project(camera);
+    const vis = _lp.z < 1, sx = (_lp.x * 0.5 + 0.5) * W, sy = (-_lp.y * 0.5 + 0.5) * H;
+    r.markerEl.style.transform = `translate(${sx}px,${sy}px)`; r.markerEl.style.display = vis ? 'block' : 'none';
+    const show = vis && (state.selected === def.id || state.hover === def.id);
+    r.labelEl.classList.toggle('on', show); r.lineEl.classList.toggle('on', show);
+    if (show) {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize), pw = r.labelEl.offsetWidth + 2 * rem;
+      const lim0 = 26.5 * rem, lim1 = W - 38.5 * rem, gap = 5.5 * rem;
+      let dirx = sx < W * 0.5 ? -1 : 1;
+      if (dirx > 0 && sx + gap + pw > lim1) dirx = -1;
+      if (dirx < 0 && sx - gap - pw < lim0) dirx = 1;
+      const ox = sx + dirx * gap, oy = sy - 4.2 * rem;
+      r.labelEl.style.transform = `translate(${ox}px,${oy}px) translate(${dirx < 0 ? '-100%' : '0'},-50%)`;
+      r.lineEl.setAttribute('x1', sx); r.lineEl.setAttribute('y1', sy); r.lineEl.setAttribute('x2', ox); r.lineEl.setAttribute('y2', oy);
+    }
+  });
+}
+
+/* =====================================================================
+   12. RESIZE + LOOP
+===================================================================== */
+function onResize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h); if (composer) composer.setSize(w, h);
+  pMat.uniforms.uScale.value = (h * renderer.getPixelRatio()) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+}
+window.addEventListener('resize', onResize); onResize();
+
+const clock = new THREE.Clock(); let time = 0, first = true;
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 0.05); time += dt; timeU.value = time;
+  updateTween(dt); controls.update();
+  updateRegions(dt, time); updateTracts(dt, time); updateParticles(); updateShellAndFx(dt, time); updateWaves(dt);
+  dust.rotation.y += dt * 0.01;
+  updateLabels();
+  if (composer) composer.render(); else renderer.render(scene, camera);
+  if (first) { first = false; setTimeout(() => $('loading').classList.add('done'), 400); }
+}
+
+// Initial state
+refreshUI(); renderCard();
+flyTo(HOME.t, HOME.dir, HOME.r, 2.6);
+frame();
+
+// Handy hooks for rehearsal / testing
+window.brainApp = { select, deselect, setFilter, toggleSim, resetCamera, state };
+})();
+</script>
+</body>
+</html>
